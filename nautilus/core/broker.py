@@ -313,6 +313,12 @@ class _RequestState:
     sources_skipped: list[str] = field(default_factory=list[str])
     errored: list[ErrorRecord] = field(default_factory=list[ErrorRecord])
     data: dict[str, list[dict[str, Any]]] = field(default_factory=dict[str, list[dict[str, Any]]])
+    # Per-source chain-of-custody digests (issue #19, design §5.7). Populated
+    # from each successful ``AdapterResult.response_hash`` in
+    # ``_gather_adapter_results``; threaded into the signed attestation as the
+    # ``source_response_hashes`` claim. Non-deterministic adapters (llm) omit
+    # their entry so the broker still signs ``hash_skipped=True`` (AC-19.g).
+    source_response_hashes: dict[str, str] = field(default_factory=dict[str, str])
     attestation_token: str | None = None
     scope_hash_version: Literal["v1", "v2"] | None = None  # set by `_sign`
     # Session-provenance JWS (#18) — echoed/minted by `_process_session_token`
@@ -1377,6 +1383,7 @@ class Broker:
                     rule_trace=state.rule_trace,
                     session_id=state.session_id,
                     response=state.data or None,
+                    source_response_hashes=state.source_response_hashes or None,
                 )
             state.attestation_token = token
             state.scope_hash_version = scope_hash_version
@@ -1632,6 +1639,12 @@ class Broker:
                 continue
             successful.append(res)
             state.sources_queried.append(source_id)
+            # Per-source chain-of-custody hash (issue #19, AC-19). Deterministic
+            # adapters populate ``response_hash`` at the adapter boundary;
+            # non-deterministic adapters (llm) leave it ``None`` and are omitted
+            # so ``_sign`` still emits ``hash_skipped=True`` (AC-19.g).
+            if res.response_hash is not None:
+                state.source_response_hashes[source_id] = res.response_hash
         return successful
 
     def _build_response(self, state: _RequestState) -> BrokerResponse:
@@ -1869,6 +1882,7 @@ class Broker:
         rule_trace: list[str],
         session_id: str,
         response: dict[str, Any] | None = None,
+        source_response_hashes: dict[str, str] | None = None,
     ) -> tuple[str, Literal["v1", "v2"], dict[str, Any]]:
         """Compose the Nautilus attestation payload and sign it (design §9.3).
 
@@ -1917,6 +1931,7 @@ class Broker:
             list(rule_trace),
             response_hash=response_hash,
             hash_skipped=hash_skipped,
+            source_response_hashes=source_response_hashes,
         )
 
         # Nautilus-specific decision marker; the Fathom JWT carries this as

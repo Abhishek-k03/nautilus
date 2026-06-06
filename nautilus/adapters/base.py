@@ -183,7 +183,15 @@ class Adapter(Protocol):
 
         Returns:
             An :class:`AdapterResult` with ``rows`` populated on success
-            or ``error`` populated on runtime failure.
+            or ``error`` populated on runtime failure. On success a
+            deterministic adapter MUST also populate ``response_hash`` with
+            ``compute_raw_response_hash(rows)`` — a ``sha256:<hex>`` digest of
+            this source's raw response, computed at the adapter boundary before
+            any cross-source synthesis (issue #19, design §5.7 Weakness 7).
+            Non-deterministic adapters (``capabilities`` containing
+            ``"non_deterministic"``, e.g. the LLM adapter) MUST leave
+            ``response_hash`` as ``None`` so the broker signs
+            ``hash_skipped=True`` instead (AC-19.g).
 
         Raises:
             ScopeEnforcementError: If ``scope`` violates the operator or

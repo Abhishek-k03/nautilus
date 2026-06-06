@@ -174,6 +174,7 @@ def build_payload(
     rule_trace: Any,
     response_hash: str | None = None,
     hash_skipped: bool = False,
+    source_response_hashes: dict[str, str] | None = None,
 ) -> tuple[dict[str, Any], Literal["v1", "v2"]]:
     """Build the Nautilus attestation payload + its scope-hash version.
 
@@ -210,6 +211,13 @@ def build_payload(
     }
     if response_hash is not None:
         payload["response_hash"] = response_hash
+    if source_response_hashes:
+        # Per-source chain-of-custody claim (issue #19, design §5.7). Added
+        # alongside the whole-response ``response_hash`` (kept for backward
+        # compat so existing verifiers that read ``response_hash`` still work).
+        # Covered by the JWT ``input_hash`` because the whole payload is the
+        # signed ``input_facts`` (see ``Broker._sign``).
+        payload["source_response_hashes"] = dict(source_response_hashes)
     if hash_skipped:
         payload["hash_skipped"] = True
     return payload, version
@@ -224,4 +232,17 @@ def compute_response_hash(adapter_result: Any) -> str:
     return _sha256(adapter_result)
 
 
-__all__ = ["build_payload", "compute_response_hash"]
+def compute_raw_response_hash(rows: Any) -> str:
+    """Return ``sha256:<hex>`` of a single source's raw response rows.
+
+    Shared canonicalization used by every adapter (issue #19, design §5.7) so
+    all 8 deterministic adapters hash their RAW upstream response identically
+    — at the adapter boundary, before any Nautilus scope-filter/synthesis.
+    Reuses the same canonical JSON scheme as :func:`compute_response_hash`
+    (``sort_keys=True`` → dict key order is irrelevant; byte-sensitive to row
+    content, AC-19.f).
+    """
+    return _sha256(rows)
+
+
+__all__ = ["build_payload", "compute_raw_response_hash", "compute_response_hash"]
