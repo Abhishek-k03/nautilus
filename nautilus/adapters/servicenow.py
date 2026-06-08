@@ -339,9 +339,7 @@ class ServiceNowAdapter:
             if declared > _MAX_ATTACHMENT_BYTES:
                 row["content_error"] = "attachment-too-large"
                 continue
-            response = await client.get(
-                f"/api/now/attachment/{sys_id}/file", headers=headers
-            )
+            response = await client.get(f"/api/now/attachment/{sys_id}/file", headers=headers)
             response.raise_for_status()
             content = response.content
             if len(content) > _MAX_ATTACHMENT_BYTES:

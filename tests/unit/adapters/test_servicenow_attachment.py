@@ -61,9 +61,7 @@ def _intent() -> IntentAnalysis:
 
 
 def _pin(sys_id: str = _SYS_ID) -> list[ScopeConstraint]:
-    return [
-        ScopeConstraint(source_id="sn_attach", field="sys_id", operator="=", value=sys_id)
-    ]
+    return [ScopeConstraint(source_id="sn_attach", field="sys_id", operator="=", value=sys_id)]
 
 
 def _meta_row(sys_id: str = _SYS_ID, size: str = "1024") -> dict[str, Any]:
@@ -71,9 +69,7 @@ def _meta_row(sys_id: str = _SYS_ID, size: str = "1024") -> dict[str, Any]:
         "sys_id": sys_id,
         "file_name": "doc.docx",
         "size_bytes": size,
-        "content_type": (
-            "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-        ),
+        "content_type": ("application/vnd.openxmlformats-officedocument.wordprocessingml.document"),
     }
 
 
@@ -162,9 +158,7 @@ async def test_in_pinned_rows_each_gain_content() -> None:
 async def test_unpinned_attachment_query_stays_metadata_only() -> None:
     handler = _SnTransport([_meta_row()])
     scope = [
-        ScopeConstraint(
-            source_id="sn_attach", field="file_name", operator="LIKE", value="doc"
-        )
+        ScopeConstraint(source_id="sn_attach", field="file_name", operator="LIKE", value="doc")
     ]
     result = await _run(handler, scope)
 
@@ -220,9 +214,7 @@ async def test_oversize_body_rejected_post_download(
 @pytest.mark.unit
 async def test_row_count_over_cap_raises(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(sn_mod, "_MAX_ATTACHMENT_FETCHES", 2)
-    handler = _SnTransport(
-        [_meta_row(_SYS_ID), _meta_row(_SYS_ID_2), _meta_row(_SYS_ID_3)]
-    )
+    handler = _SnTransport([_meta_row(_SYS_ID), _meta_row(_SYS_ID_2), _meta_row(_SYS_ID_3)])
     scope = [
         ScopeConstraint(
             source_id="sn_attach",
