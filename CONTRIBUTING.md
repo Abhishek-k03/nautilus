@@ -6,7 +6,7 @@ Please read and follow our [Code of Conduct](CODE_OF_CONDUCT.md) before particip
 
 ## Prerequisites
 
-- **Python 3.14+**
+- **Python 3.13+**
 - **[uv](https://docs.astral.sh/uv/)** — package and project manager
 - **Docker** — required for integration tests only
 
@@ -42,6 +42,12 @@ Please read and follow our [Code of Conduct](CODE_OF_CONDUCT.md) before particip
    uv run ruff check .
    uv run ruff format --check .
    uv run pyright
+   ```
+   `pyright` analyzes the whole tree, including modules that import the
+   optional `otel` / LLM provider dependencies. Install those extras first so
+   it can resolve every import:
+   ```bash
+   uv sync --extra dev --extra otel --extra llm-anthropic --extra llm-openai
    ```
 3. Run tests:
    ```bash

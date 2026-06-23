@@ -17,10 +17,29 @@ from __future__ import annotations
 
 import contextlib
 from collections.abc import Callable
+from typing import TYPE_CHECKING
 
-from prometheus_client import REGISTRY
-from prometheus_client.metrics_core import GaugeMetricFamily
-from prometheus_client.registry import Collector
+# prometheus-client lives in the optional ``otel`` extra; importing this module
+# without it must not crash. Type-checking always sees the real symbols (run
+# pyright with the ``otel`` extra installed); at runtime we degrade to no-ops.
+if TYPE_CHECKING:
+    from prometheus_client import REGISTRY
+    from prometheus_client.metrics_core import GaugeMetricFamily
+    from prometheus_client.registry import Collector
+
+    _has_prometheus = True
+else:
+    try:
+        from prometheus_client import REGISTRY
+        from prometheus_client.metrics_core import GaugeMetricFamily
+        from prometheus_client.registry import Collector
+
+        _has_prometheus = True
+    except ImportError:
+        _has_prometheus = False
+        REGISTRY = None
+        GaugeMetricFamily = object
+        Collector = object
 
 
 class _RkmQueueCollector(Collector):
@@ -62,10 +81,12 @@ class _RkmQueueCollector(Collector):
         return [depth_g, age_g]
 
 
-# Module-level singleton — registered once on import.
+# Module-level singleton — registered once on import (only when prometheus is
+# installed via the ``otel`` extra; otherwise metrics degrade to a no-op).
 _collector = _RkmQueueCollector()
-with contextlib.suppress(Exception):
-    REGISTRY.register(_collector)
+if _has_prometheus:
+    with contextlib.suppress(Exception):
+        REGISTRY.register(_collector)
 
 
 def register_rkm_queue(getter: Callable[[], object]) -> None:
