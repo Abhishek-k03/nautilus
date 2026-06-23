@@ -151,7 +151,23 @@ def session_token_headers(context: dict[str, Any]) -> dict[str, str] | None:
 
 @runtime_checkable
 class Adapter(Protocol):
-    """Adapter Protocol mirroring design §3.5 verbatim."""
+    """Adapter Protocol mirroring design §3.5 verbatim.
+
+    Capability contract (design §3.5, AC-19.g, issue #56 review): a
+    non-deterministic adapter — one whose ``rows`` are not byte-reproducible
+    across identical requests, e.g. an LLM — MUST expose a class attribute
+    ``capabilities: ClassVar[frozenset[str]]`` containing ``"non_deterministic"``
+    (see :class:`~nautilus.adapters.llm.LLMAdapter`). The broker then excludes it
+    from per-source response hashing and signs ``hash_skipped=True`` instead;
+    hashing a non-reproducible source would sign a digest that can never be
+    re-verified. Deterministic adapters omit ``capabilities`` entirely and
+    ``Broker._is_non_deterministic`` defaults the missing attribute to
+    deterministic. It is intentionally NOT a typed Protocol member: a
+    ``@runtime_checkable`` data member is required, not optional, which would
+    break ``isinstance`` and ``type[Adapter]`` assignability for every
+    deterministic adapter that legitimately omits it — so the contract is
+    documented here instead.
+    """
 
     source_type: ClassVar[str]
 
@@ -183,7 +199,16 @@ class Adapter(Protocol):
 
         Returns:
             An :class:`AdapterResult` with ``rows`` populated on success
-            or ``error`` populated on runtime failure.
+            or ``error`` populated on runtime failure. The per-source
+            chain-of-custody digest (issue #19, design §5.7 Weakness 7) is
+            computed centrally and exclusively by the broker over ``rows`` at
+            the pre-synthesis boundary; an adapter never supplies its own digest
+            (there is no ``response_hash`` field on :class:`AdapterResult`) so a
+            malicious or buggy adapter cannot inject an arbitrary hash into the
+            signed attestation (issue #56 review). Non-deterministic adapters
+            (``capabilities`` containing ``"non_deterministic"``, e.g. the LLM
+            adapter) are excluded from hashing entirely so the broker signs
+            ``hash_skipped=True`` instead (AC-19.g).
 
         Raises:
             ScopeEnforcementError: If ``scope`` violates the operator or

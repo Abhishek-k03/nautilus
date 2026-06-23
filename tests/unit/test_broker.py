@@ -95,6 +95,8 @@ class _FakeAdapter:
             await asyncio.sleep(self._sleep_for)
         if self._raises is not None:
             raise self._raises(f"fake_adapter {self._source_id} configured to raise")
+        # The broker derives the per-source chain-of-custody hash centrally from
+        # ``rows`` at the synthesis boundary; adapters never supply it (issue #56).
         return AdapterResult(
             source_id=self._source_id,
             rows=list(self._rows),
